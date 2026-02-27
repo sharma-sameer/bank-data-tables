@@ -9,6 +9,8 @@ snowflake = "*"
 aws-secretsmanager-caching = "*"
 snowflake-connector-python = "*"
 polars = "*"
+pyarrow = "*"
+pandas = "*"
 
 [dev-packages]
 

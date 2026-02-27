@@ -8,6 +8,8 @@ from snowflake.connector.connection import SnowflakeConnection
 import json
 import logging
 import polars as pl
+from .get_sql_list import get_sql_list
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure the root logger
 logging.basicConfig(
@@ -53,6 +55,11 @@ def get_connector() -> SnowflakeConnection:
     return conn
 
 
+def to_polars(batch):
+    # .to_arrow() is highly efficient for Polars
+    return pl.from_arrow(batch.to_arrow())
+
+
 def get_execution_records() -> pl.DataFrame:
     """
     1. Establish connection to snowflake.
@@ -69,13 +76,23 @@ def get_execution_records() -> pl.DataFrame:
     logger.info("Create a new cursor.")
     cursor = ctx.cursor()
     # Open the sql file to the executed.
+    logger.info("Getting the list of sql files to execute.")
+    sql_files = get_sql_list(Path.cwd() / "sql")
+    logger.info(f"Executing {len(sql_files)} files")
     logger.info("Trying to execute the query.")
     try:
-        with open(Path.cwd() / "sql" / "pull_data.sql", "r") as query:
-            # Run the query and save results as a pandas DataFrame.
-            # reports_df = cursor.execute(query.read()).fetch_pandas_all()
-            # Using Polars
-            reports_df = pl.read_database(query.read(), ctx)
+        for file in sql_files:
+            with open(file, "r") as query:
+                # Run the query and save results as a pandas DataFrame.
+                # reports_df = cursor.execute(query.read()).fetch_pandas_all()
+                # Using Polars
+                # reports_df = pl.read_database(query.read(), ctx).lazy()
+                cursor.execute(query.read())
+            batches = cursor.get_result_batches()
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                dfs = list(executor.map(to_polars, batches))
+
+            reports_df = pl.concat(dfs)
     except Exception as e:
         logger.error(
             f"Failed to execute the query. Got the following error:",
@@ -86,6 +103,7 @@ def get_execution_records() -> pl.DataFrame:
     # Return the resulting DataFrame
     return reports_df
 
-if __name__ == '__main__':
-    df = get_reports()
+
+if __name__ == "__main__":
+    df = get_execution_records()
     df.glimpse()
