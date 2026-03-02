@@ -28,6 +28,7 @@ cache_config = SecretCacheConfig()
 cache = SecretCache(config=cache_config, client=client)
 secret = cache.get_secret_string("snowflake/user-login")
 secret_json = json.loads(secret)
+BATCH_NUM = 0
 
 
 def get_connector() -> SnowflakeConnection:
@@ -57,6 +58,8 @@ def get_connector() -> SnowflakeConnection:
 
 def to_polars(batch):
     # .to_arrow() is highly efficient for Polars
+    logger.info(f"Executing batch number {BATCH_NUM + 1}")
+    BATCH_NUM += 1
     return pl.from_arrow(batch.to_arrow())
 
 
@@ -88,6 +91,7 @@ def get_execution_records() -> pl.DataFrame:
                 # Using Polars
                 # reports_df = pl.read_database(query.read(), ctx).lazy()
                 cursor.execute(query.read())
+            logger.info("Ran the Query. Consolidating batches.")
             batches = cursor.get_result_batches()
             with ThreadPoolExecutor(max_workers=8) as executor:
                 dfs = list(executor.map(to_polars, batches))
@@ -106,4 +110,4 @@ def get_execution_records() -> pl.DataFrame:
 
 if __name__ == "__main__":
     df = get_execution_records()
-    df.glimpse()
+    df.write_parquet('s3://omwbp-s3-prod-data-science-modeling-shared-data-ue1-all/Sameer_S/bank_data_tables/BATv2/data.parquet')
