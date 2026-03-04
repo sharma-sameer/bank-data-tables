@@ -5,8 +5,16 @@ import polars.selectors as cs
 from .get_execution_records import logger
 
 
-def flatten_features(records_df, table_name):
-    """ """
+def flatten_features(records_df: pl.DataFrame, table_name: str) -> pl.DataFrame:
+    """
+    Function to convert the features from row values to columns.
+
+    Args:
+        records_df (pl.DataFrame): Data to be flattened.
+        table_name (str): Name of the table to which the table is to be inserted.
+    Returns:
+        table_df (pl.DataFrame): Data to be inserted to the snowflake table.
+    """
     logger.info("Performing column transformations.")
     records_df = records_df.with_columns(
         pl.col("MODEL_EXECUTION_TIMESTAMP").dt.date().alias("EXECUTION_DATE")
@@ -67,8 +75,15 @@ def flatten_features(records_df, table_name):
     return table_df
 
 
-def get_table_cols(table_name):
-    """ """
+def get_table_cols(table_name:str) -> List:
+    """
+    Function to get the table columns.
+
+    Args:
+        table_name (str): Name of the table to which the table is to be inserted.
+    Returns:
+        table_cols (List): List of columns for this table.
+    """
     table_cols = []
     file = table_name + ".csv"
     filename = Path.cwd() / "table_columns" / file

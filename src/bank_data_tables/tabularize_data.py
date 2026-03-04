@@ -4,8 +4,15 @@ from .flatten_data import *
 from .save_to_database import *
 
 
-def tabularize_data() -> pl.DataFrame:
-    """ """
+def tabularize_data() -> None:
+    """
+    Function to consume a batch of data from snowflake transform it for table insertion.
+
+    Args:
+        None
+    Returns:
+        None
+    """
     # records_df = get_execution_records()
     logger.info("Getting the list of sql files to execute.")
     sql_files = get_sql_list(Path.cwd() / "sql")

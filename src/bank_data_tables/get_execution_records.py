@@ -38,7 +38,7 @@ def get_connector() -> SnowflakeConnection:
     Args:
         None
     Returns:
-        ctx (Connection): A connection object to the snowflake datanase.
+        ctx (SnowflakeConnection): A connection object to the snowflake database.
     """
     # . Establish connection with the snowflake database.
     logger.info("Establishing connection with the snowflake database.")
@@ -79,7 +79,7 @@ def get_execution_records(sql_filename: str) -> pl.DataFrame:
     Args:
         sql_filename (str): sql file location to execute.
     Returns:
-        records_df (pd.DataFrame): A pandas DataFrame with the report data and the acap_key
+        records_df (pl.DataFrame): A polars DataFrame with the data from query execution.
     """
     # Establish connection to snowflake.
     ctx = get_connector()

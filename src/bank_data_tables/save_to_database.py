@@ -6,8 +6,16 @@ import datetime
 logger.info("Getting snowflake connector to save data.")
 
 
-def save_to_snowflake(table_df, table_name):
-    """ """
+def save_to_snowflake(table_df: pl.DataFrame, table_name: str) -> str:
+    """
+    Function to save the data to snowflake.
+
+    Args:
+        table_df (pl.DataFrame): Data to be inserted.
+        table_name (str): Name of the table to which the table is to be inserted.
+    Returns:
+        str: Status of the data insertion.
+    """
     conn = get_connector()
     logger.info("Checking if the table already exists.")
     if (
@@ -51,7 +59,17 @@ def save_to_snowflake(table_df, table_name):
     return "Saved to snowflake table successfully."
 
 
-def create_update_table(table_df, table_name, conn):
+def create_update_table(table_df: pl.DataFrame, table_name: str, conn: SnowflakeConnection) -> None:
+    """
+    Function to run the insert or create table command in snowflake.
+
+    Args:
+        table_df (pl.DataFrame): Data to be inserted.
+        table_name (str): Name of the table to which the table is to be inserted.
+        conn (SnowflakeConnection): A connection object to the snowflake database.
+    Returns:
+        None
+    """
     df = table_df.to_pandas()
     conn.cursor().execute("USE DATABASE EDS;")
     conn.cursor().execute("USE SCHEMA SB_DATA_SCIENCE;")
