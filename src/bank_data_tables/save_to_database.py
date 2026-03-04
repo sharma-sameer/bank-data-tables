@@ -30,10 +30,10 @@ def save_to_snowflake(table_df: pl.DataFrame, table_name: str) -> str:
         logger.info(
             "Data inserted successfully. Now need to update the Metadata table to reflect the refresh time."
         )
-        query = """UPDATE TABLE BANK_FEATURES_METADATA 
+        query = """UPDATE BANK_FEATURES_METADATA 
             SET LAST_REFRESH_DATE = TO_TIMESTAMP(%s),
             DATA_AS_OF_DATE = TO_TIMESTAMP(%s) 
-            WHERE TABLE_NAME = %s{};"""
+            WHERE TABLE_NAME = %s;"""
         conn.cursor().execute(
             query,
             (

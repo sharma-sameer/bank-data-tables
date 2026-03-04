@@ -3,6 +3,7 @@ from pathlib import Path
 import csv
 import polars.selectors as cs
 from .get_execution_records import logger
+from typing import List
 
 
 def flatten_features(records_df: pl.DataFrame, table_name: str) -> pl.DataFrame:
