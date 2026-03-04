@@ -41,7 +41,7 @@ def save_to_snowflake(table_df, table_name):
             query,
             (
                 table_name.upper(),
-                datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                dt.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                 table_df["MODEL_EXECUTION_TIMESTAMP"]
                 .max()
                 .strftime("%Y-%m-%d %H:%M:%S"),
