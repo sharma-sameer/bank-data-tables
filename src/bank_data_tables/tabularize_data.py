@@ -17,6 +17,9 @@ def tabularize_data() -> None:
     logger.info("Getting the list of sql files to execute.")
     sql_files = get_sql_list(Path.cwd() / "sql")
 
+    logger.info(
+        "Fetched all the sql files. Filtering out any deprecated tables."
+    )
     query = """SELECT IS_DEPRECATED 
         FROM EDS.SB_DATA_SCIENCE.BANK_FEATURES_METADATA 
         WHERE TABLE_NAME = %s"""
@@ -28,17 +31,21 @@ def tabularize_data() -> None:
         for sql_file in sql_files
         if not cursor.execute(query, Path(sql_file).stem).fetchone()
     ]
-
-    logger.info(f"Executing {len(sql_files)} files")
+    logger.info(
+        "Successfully pulled the list of valid sql files to be executed."
+    )
+    logger.info("Using ThreadPool to parallelize the query execution.")
+    logger.info(f"{len(sql_files)} tables to create/refresh.")
+    logger.info("Scheduling the queries to be executed.")
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         # Map the read_file_content function to the list of files
-        logger.info(f"{len(sql_files)} tables to create/refresh.")
         sql_scheduled = {
             executor.submit(get_execution_records, sql_file): sql_file
             for sql_file in sql_files
         }
 
+        logger.info("Processing the query results as they complete.")
         # Process results as they are completed
         for future in as_completed(sql_scheduled):
             file = sql_scheduled[future]

@@ -72,10 +72,11 @@ def flatten_features(records_df: pl.DataFrame, table_name: str) -> pl.DataFrame:
             )
         ).cast(pl.Float64)
     )
+    logger.info("Data transformation completed.")
     return table_df
 
 
-def get_table_cols(table_name:str) -> List:
+def get_table_cols(table_name: str) -> List:
     """
     Function to get the table columns.
 
@@ -85,6 +86,7 @@ def get_table_cols(table_name:str) -> List:
         table_cols (List): List of columns for this table.
     """
     table_cols = []
+    logger.info("Reading the list of valid table columns.")
     file = table_name + ".csv"
     filename = Path.cwd() / "table_columns" / file
     with open(filename, mode="r", newline="", encoding="utf-8") as file:

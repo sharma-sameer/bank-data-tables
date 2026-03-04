@@ -23,7 +23,13 @@ def save_to_snowflake(table_df: pl.DataFrame, table_name: str) -> str:
         is not None
     ):
         logger.info("The table already exists. Need to insert in the table.")
+        insert_time = dt.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
         create_update_table(table_df, table_name, conn)
+        logger.info(
+            "Data inserted successfully. Now need to update the Metadata table to reflect the refresh time."
+        )
         query = """UPDATE TABLE BANK_FEATURES_METADATA 
             SET LAST_REFRESH_DATE = TO_TIMESTAMP(%s),
             DATA_AS_OF_DATE = TO_TIMESTAMP(%s) 
@@ -31,7 +37,7 @@ def save_to_snowflake(table_df: pl.DataFrame, table_name: str) -> str:
         conn.cursor().execute(
             query,
             (
-                dt.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                insert_time,
                 table_df["MODEL_EXECUTION_TIMESTAMP"]
                 .max()
                 .strftime("%Y-%m-%d %H:%M:%S"),
@@ -40,7 +46,13 @@ def save_to_snowflake(table_df: pl.DataFrame, table_name: str) -> str:
         )
     else:
         logger.info("The table needs to be created.")
+        insert_time = dt.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
         create_update_table(table_df, table_name, conn)
+        logger.info(
+            "Data inserted successfully. Now need to update the Metadata table to reflect the refresh time."
+        )
         query = """INSERT INTO BANK_FEATURES_METADATA (TABLE_NAME, LAST_REFRESH_DATE, DATA_AS_OF_DATE)
             VALUES(%s, 
                    TO_TIMESTAMP(%s), 
@@ -49,7 +61,7 @@ def save_to_snowflake(table_df: pl.DataFrame, table_name: str) -> str:
             query,
             (
                 table_name.upper(),
-                dt.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                insert_time,
                 table_df["MODEL_EXECUTION_TIMESTAMP"]
                 .max()
                 .strftime("%Y-%m-%d %H:%M:%S"),
@@ -59,7 +71,9 @@ def save_to_snowflake(table_df: pl.DataFrame, table_name: str) -> str:
     return "Saved to snowflake table successfully."
 
 
-def create_update_table(table_df: pl.DataFrame, table_name: str, conn: SnowflakeConnection) -> None:
+def create_update_table(
+    table_df: pl.DataFrame, table_name: str, conn: SnowflakeConnection
+) -> None:
     """
     Function to run the insert or create table command in snowflake.
 
@@ -70,9 +84,15 @@ def create_update_table(table_df: pl.DataFrame, table_name: str, conn: Snowflake
     Returns:
         None
     """
+    logger.info(
+        "Snowflake only supports pandas so need to convert the dataframe to pandas."
+    )
     df = table_df.to_pandas()
+    logger.info("Using Database EDS.")
     conn.cursor().execute("USE DATABASE EDS;")
+    logger.info("Using Database SB_DATA_SCIENCE.")
     conn.cursor().execute("USE SCHEMA SB_DATA_SCIENCE;")
+    logger.info("Inserting Data.")
     write_pandas(
         conn=conn,
         df=df,

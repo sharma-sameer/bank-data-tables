@@ -28,7 +28,6 @@ cache_config = SecretCacheConfig()
 cache = SecretCache(config=cache_config, client=client)
 secret = cache.get_secret_string("snowflake/user-login")
 secret_json = json.loads(secret)
-batch_num = 0
 
 
 def get_connector() -> SnowflakeConnection:
@@ -65,9 +64,6 @@ def to_polars(batch: snf.result_batch.ArrowResultBatch) -> pl.DataFrame:
     Returns:
         pl.DataFrame: A polars DataFrame with data from the current batch.
     """
-    global batch_num
-    logger.info(f"Executing batch number {batch_num + 1}")
-    batch_num += 1
     return pl.from_arrow(batch.to_arrow())
 
 
@@ -104,6 +100,7 @@ def get_execution_records(sql_filename: str) -> pl.DataFrame:
             dfs = list(executor.map(to_polars, batches))
 
         records_df = pl.concat(dfs)
+        logger.info("Batch consolidation completed.")
     except Exception as e:
         logger.error(
             f"Failed to execute the query. Got the following error:",
