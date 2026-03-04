@@ -1,6 +1,7 @@
 from .get_execution_records import *
 from snowflake.connector.pandas_tools import write_pandas
-from datetime import datetime
+from datetime import datetime as dt
+import datetime
 
 logger.info("Getting snowflake connector to save data.")
 
@@ -15,10 +16,20 @@ def save_to_snowflake(table_df, table_name):
     ):
         logger.info("The table already exists. Need to insert in the table.")
         create_update_table(table_df, table_name, conn)
-        conn.cursor().execute(f"""UPDATE TABLE BANK_FEATURES_METADATA 
-            SET LAST_REFRESH_DATE = {datetime.now()},
-            DATA_AS_OF_DATE = {table_df['MODEL_EXECUTION_TIMESTAMP'].max()} 
-            WHERE TABLE_NAME = {table_name.upper()};""")
+        query = """UPDATE TABLE BANK_FEATURES_METADATA 
+            SET LAST_REFRESH_DATE = TO_TIMESTAMP(%s),
+            DATA_AS_OF_DATE = TO_TIMESTAMP(%s) 
+            WHERE TABLE_NAME = %s{};"""
+        conn.cursor().execute(
+            query,
+            (
+                dt.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                table_df["MODEL_EXECUTION_TIMESTAMP"]
+                .max()
+                .strftime("%Y-%m-%d %H:%M:%S"),
+                table_name.upper(),
+            ),
+        )
     else:
         logger.info("The table needs to be created.")
         create_update_table(table_df, table_name, conn)
@@ -29,8 +40,8 @@ def save_to_snowflake(table_df, table_name):
         conn.cursor().execute(
             query,
             (
-                table_name,
-                datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+                table_name.upper(),
+                datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                 table_df["MODEL_EXECUTION_TIMESTAMP"]
                 .max()
                 .strftime("%Y-%m-%d %H:%M:%S"),

@@ -10,7 +10,7 @@ def tabularize_data() -> pl.DataFrame:
     logger.info("Getting the list of sql files to execute.")
     sql_files = get_sql_list(Path.cwd() / "sql")
 
-    query = """SELECT IS_DEPRICATED 
+    query = """SELECT IS_DEPRECATED 
         FROM EDS.SB_DATA_SCIENCE.BANK_FEATURES_METADATA 
         WHERE TABLE_NAME = %s"""
 
