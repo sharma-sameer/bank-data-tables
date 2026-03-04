@@ -28,7 +28,7 @@ cache_config = SecretCacheConfig()
 cache = SecretCache(config=cache_config, client=client)
 secret = cache.get_secret_string("snowflake/user-login")
 secret_json = json.loads(secret)
-BATCH_NUM = 0
+batch_num = 0
 
 
 def get_connector() -> SnowflakeConnection:
@@ -56,22 +56,30 @@ def get_connector() -> SnowflakeConnection:
     return conn
 
 
-def to_polars(batch):
-    # .to_arrow() is highly efficient for Polars
-    logger.info(f"Executing batch number {BATCH_NUM + 1}")
-    BATCH_NUM += 1
+def to_polars(batch: snf.result_batch.ArrowResultBatch) -> pl.DataFrame:
+    """
+    Function to consume a batch of data from snowflake and convert it into polars DataFrame.
+
+    Args:
+        batch (snowflake.connector.result_batch.ArrowResultBatch): A batch of the result from the current query execution.
+    Returns:
+        pl.DataFrame: A polars DataFrame with data from the current batch.
+    """
+    global batch_num
+    logger.info(f"Executing batch number {batch_num + 1}")
+    batch_num += 1
     return pl.from_arrow(batch.to_arrow())
 
 
-def get_execution_records() -> pl.DataFrame:
+def get_execution_records(sql_filename: str) -> pl.DataFrame:
     """
     1. Establish connection to snowflake.
-    2. Execute the query and store the data as a pandas DataFrame.
+    2. Execute the query and store the data as a polars DataFrame.
     3. Return the DataFrame.
     Args:
-        None
+        sql_filename (str): sql file location to execute.
     Returns:
-        reports_df (pd.DataFrame): A pandas DataFrame with the report data and the acap_key
+        records_df (pd.DataFrame): A pandas DataFrame with the report data and the acap_key
     """
     # Establish connection to snowflake.
     ctx = get_connector()
@@ -79,24 +87,23 @@ def get_execution_records() -> pl.DataFrame:
     logger.info("Create a new cursor.")
     cursor = ctx.cursor()
     # Open the sql file to the executed.
-    logger.info("Getting the list of sql files to execute.")
-    sql_files = get_sql_list(Path.cwd() / "sql")
-    logger.info(f"Executing {len(sql_files)} files")
     logger.info("Trying to execute the query.")
     try:
-        for file in sql_files:
-            with open(file, "r") as query:
-                # Run the query and save results as a pandas DataFrame.
-                # reports_df = cursor.execute(query.read()).fetch_pandas_all()
-                # Using Polars
-                # reports_df = pl.read_database(query.read(), ctx).lazy()
-                cursor.execute(query.read())
-            logger.info("Ran the Query. Consolidating batches.")
-            batches = cursor.get_result_batches()
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                dfs = list(executor.map(to_polars, batches))
+        table_name = Path(sql_filename).stem
+        query = """SELECT DATA_AS_OF_DATE 
+            FROM EDS.SB_DATA_SCIENCE.BANK_FEATURES_METADATA 
+            WHERE TABLE_NAME = %s"""
+        latest_time = cursor.execute(query, table_name.upper()).fetchone()
+        if latest_time is None:
+            latest_time = "1900-01-01 00:00:00"
+        with open(sql_filename, "r") as query:
+            cursor.execute(query.read(), latest_time)
+        logger.info("Ran the Query. Consolidating batches.")
+        batches = cursor.get_result_batches()
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            dfs = list(executor.map(to_polars, batches))
 
-            reports_df = pl.concat(dfs)
+        records_df = pl.concat(dfs)
     except Exception as e:
         logger.error(
             f"Failed to execute the query. Got the following error:",
@@ -105,9 +112,11 @@ def get_execution_records() -> pl.DataFrame:
         return None
 
     # Return the resulting DataFrame
-    return reports_df
+    return records_df
 
 
 if __name__ == "__main__":
     df = get_execution_records()
-    df.write_parquet('s3://omwbp-s3-prod-data-science-modeling-shared-data-ue1-all/Sameer_S/bank_data_tables/BATv2/data.parquet')
+    df.write_parquet(
+        "s3://omwbp-s3-prod-data-science-modeling-shared-data-ue1-all/Sameer_S/bank_data_tables/BATv2/data.parquet"
+    )
